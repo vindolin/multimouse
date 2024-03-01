@@ -1,0 +1,24 @@
+<!-- HTML/JavaScript code -->
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+var socket = new WebSocket("ws://localhost:8080/ws");
+socket.onmessage = function(event) {
+    var pos = JSON.parse(event.data);
+    var img = document.createElement("img");
+    img.src = "mouse.png";
+    img.style.position = "absolute";
+    img.style.left = pos.x + "px";
+    img.style.top = pos.y + "px";
+    img.style.opacity = "0.5";
+    document.body.appendChild(img);
+};
+
+document.onmousemove = function(event) {
+    var pos = {x: event.clientX, y: event.clientY};
+    socket.send(JSON.stringify(pos));
+};
+</script>
+</body>
+</html>
