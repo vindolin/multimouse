@@ -37,9 +37,6 @@ var cursorCleanupInterval;
 
 function registerWebsocketHandlers(ws) {
     ws.onmessage = (event) => {
-
-
-
         // check if message is a ping
         if(event.data.startsWith('ping')) {
             lastPingTimestamp = Date.now();
@@ -52,8 +49,10 @@ function registerWebsocketHandlers(ws) {
         var x = data.x * window.innerWidth;
         var y = data.y * window.innerHeight;
 
-        if(data.clientId != clientId) {
-            if (!cursors[data.clientId]) {
+        if(data.clientId != clientId) { // Don't show our own cursor
+
+            // If we haven't seen this client before, or if this cursor has been removed due to inactivity
+            if (! cursors[data.clientId]) {
                 var hueRotation = Math.floor(Math.random() * 360);
 
                 var cursor = document.createElement('img');
@@ -158,22 +157,32 @@ function connect() {
     });
 }
 
+
+function removeCursor(cursor) {
+    cursor.style.transition = `opacity ${cursorFadeOutDuration}ms`;
+    cursor.style.opacity = '0';
+
+    cursor.addEventListener('transitionend', () => {
+        cursor.remove();
+    });
+}
+
+function removeStaleCursor(clientId) {
+    var cursor = cursors[clientId];
+    if (cursor) {
+        removeCursor(cursor);
+        delete cursors[clientId];
+        delete lastReceived[clientId];
+    }
+}
+
 // Periodically check for inactive clients
 setInterval(() => {
     var now = Date.now();
     for (var clientId in lastReceived) {
         // If more than n seconds have passed since the last time we received data from this client
         if (now - lastReceived[clientId] > cursorLifeTime) {
-            // Fade out the cursor of this client
-            var cursor = cursors[clientId];
-            cursor.style.transition = `opacity ${cursorFadeOutDuration}ms`;
-            cursor.style.opacity = '0';
-
-            cursor.addEventListener('transitionend', () => {
-                cursor.remove();
-                delete cursors[clientId];
-                delete lastReceived[clientId];
-            });
+            removeStaleCursor(clientId);
         }
     }
 }, cursorCleanupIntervalTime);  // Check every second
