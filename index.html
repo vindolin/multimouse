@@ -14,20 +14,20 @@
 <script>
 (() => {
 
+// todo fix cursors not working if server restarts too quickly
+
 const pingIntervalTime = 30 * 1000; // ms
 const loc = window.location;
 const scheme = loc.protocol === 'https:' ? 'wss :' : 'ws:';
 
 const cursorLifeTime = 2000;
-const cursorCleanupInterval = 1000;
+const cursorCleanupIntervalTime = 2000;
 const cursorFadeOutDuration = 1000;
 const fastReconnectInterval = 1000;
 
 let lastPingTimestamp = Date.now();
 let pingInterval;
 let reconnecting;
-
-// const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
 
 var cursors = {};
 var lastReceived = {};
@@ -37,6 +37,8 @@ var cursorCleanupInterval;
 
 function registerWebsocketHandlers(ws) {
     ws.onmessage = (event) => {
+
+
 
         // check if message is a ping
         if(event.data.startsWith('ping')) {
@@ -54,20 +56,21 @@ function registerWebsocketHandlers(ws) {
             if (!cursors[data.clientId]) {
                 var hueRotation = Math.floor(Math.random() * 360);
 
-                var img = document.createElement('img');
-                img.src = 'cursor.png';  // Path to the cursor image
-                img.style.position = 'absolute';
-                img.style.filter = 'hue-rotate(' + hueRotation + 'deg)';
-                img.style.opacity = '0';  // Initially hidden
-                img.style.transition = 'opacity 1s';
-                img.style.transition = 'transform 500ms';
+                var cursor = document.createElement('img');
+                cursor.classList.add('cursor');
+                cursor.src = 'cursor.png';  // Path to the cursor image
+                cursor.style.position = 'absolute';
+                cursor.style.filter = 'hue-rotate(' + hueRotation + 'deg)';
+                cursor.style.opacity = '0';  // Initially hidden
+                cursor.style.transition = 'opacity 1s';
+                // img.style.transition = 'transform 500ms';
 
-                document.body.appendChild(img);
-                cursors[data.clientId] = img;
+                document.body.appendChild(cursor);
+                cursors[data.clientId] = cursor;
 
                 // Fade in the cursor
-                setTimeout(function() {
-                    img.style.opacity = '1';
+                setTimeout(() => {
+                    cursor.style.opacity = '1';
                 }, 0);
             }
 
@@ -81,7 +84,7 @@ function registerWebsocketHandlers(ws) {
         }
     };
 
-    ws.onclose = function(event) {
+    ws.onclose = (event) => {
         console.info('Socket is closed. Reconnecting in 1 second');
 
         if(reconnecting) return;
@@ -95,7 +98,7 @@ function registerWebsocketHandlers(ws) {
         }, fastReconnectInterval);
     };
 
-    ws.onerror = function(err) {
+    ws.onerror = (err) => {
         console.error(`Socket error: ${err.message}, Closing socket`);
         ws.close();
     };
@@ -105,11 +108,30 @@ function registerWebsocketHandlers(ws) {
     };
 }
 
+var cleanupRunning = false;
+
+function cleanupOldCursors() {
+    // remove all .cursor elements
+    var oldCursors = document.getElementsByClassName('cursor');
+    // iterate over oldCursors
+    for(const cursor of oldCursors) {
+        // remove the cursor
+        cursor.remove();
+
+        if(0) {
+            cursor.style.transition = 'opacity 1s';
+            cursor.style.opacity = '0';
+
+            cursor.addEventListener('transitionend', () => {
+                cursor.parentNode.removeChild(cursor);
+            });
+        }
+    }
+}
+
 // connect to the websocket
 function connect() {
-    cursors = {};
-    lastReceived = {};
-
+    //cleanupOldCursors();
     clientId = Date.now();
     console.info('Connecting to websocket');
     const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
@@ -117,7 +139,7 @@ function connect() {
     registerWebsocketHandlers(ws);
 
     // periodically check if we have received a ping in the last n seconds
-    pingInterval = setInterval(function() {
+    pingInterval = setInterval(() => {
         if (Date.now() - lastPingTimestamp <= pingIntervalTime) return;
         console.info(`No ping received for more than ${seconds / 1000} seconds!`);
         lastPingTimestamp = Date.now();
@@ -131,34 +153,30 @@ function connect() {
 
         // send mouse move event to server
         const msg = JSON.stringify({clientId, x, y});
-        console.info(`Sending mouse move event: ${msg}`);
-        ws.send(msg);
+        // console.info(`Sending mouse move event: ${msg}`);
+        try {ws.send(msg);} catch (e) {}
     });
-
-    // Periodically check for inactive clients
-    clearInterval(cursorCleanupInterval);
-    cursorCleanupInterval = setInterval(function() {
-        var now = Date.now();
-        for (var clientId in lastReceived) {
-            // If more than n seconds have passed since the last time we received data from this client
-            if (now - lastReceived[clientId] > cursorLifeTime) {
-                // Fade out the cursor of this client
-                var cursor = cursors[clientId];
-                cursor.style.transition = 'opacity 1s';
-                cursor.style.opacity = '0';
-
-                // Remove the cursor after the transition is complete
-                setTimeout(function() {
-                    try {
-                        cursor.parentNode.removeChild(cursor);
-                        delete cursors[clientId];
-                        delete lastReceived[clientId];
-                    } catch (e) {}
-                }, cursorFadeOutDuration);  // The duration of the transition
-            }
-        }
-    }, cursorCleanupInterval);  // Check every second
 }
+
+// Periodically check for inactive clients
+setInterval(() => {
+    var now = Date.now();
+    for (var clientId in lastReceived) {
+        // If more than n seconds have passed since the last time we received data from this client
+        if (now - lastReceived[clientId] > cursorLifeTime) {
+            // Fade out the cursor of this client
+            var cursor = cursors[clientId];
+            cursor.style.transition = `opacity ${cursorFadeOutDuration}ms`;
+            cursor.style.opacity = '0';
+
+            cursor.addEventListener('transitionend', () => {
+                cursor.remove();
+                delete cursors[clientId];
+                delete lastReceived[clientId];
+            });
+        }
+    }
+}, cursorCleanupIntervalTime);  // Check every second
 
 // lets party!
 connect();
