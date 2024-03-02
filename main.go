@@ -37,8 +37,9 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 
 		// Parse the incoming message as a mouse event
 		var mouseData struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
+			ClientId int     `json:"clientId"`
+			X        float64 `json:"x"`
+			Y        float64 `json:"y"`
 		}
 		if err := json.Unmarshal(message, &mouseData); err != nil {
 			log.Println("error unmarshalling message:", err)
@@ -46,7 +47,7 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 		}
 
 		// Handle the mouse event...
-		// log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
+		log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
 
 		// Convert the message to a string before broadcasting
 		pool.broadcast <- string(message)

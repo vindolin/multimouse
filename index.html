@@ -15,33 +15,25 @@
 (() => {
 
 const pingIntervalTime = 30 * 1000; // ms
-
 const loc = window.location;
 const scheme = loc.protocol === 'https:' ? 'wss :' : 'ws:';
+
+const cursorLifeTime = 2000;
+const cursorCleanupInterval = 1000;
+const cursorFadeOutDuration = 1000;
+const fastReconnectInterval = 1000;
 
 let lastPingTimestamp = Date.now();
 let pingInterval;
 let reconnecting;
 
-const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
+// const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
 
 var cursors = {};
 var lastReceived = {};
+var mouseMoveHandler;
+var cursorCleanupInterval;
 
-function createUUID() {
-    // http://www.ietf.org/rfc/rfc4122.txt
-    var s = [];
-    var hexDigits = "0123456789abcdef";
-    for (var i = 0; i < 36; i++) {
-        s[i] = hexDigits.substr(Math.floor(Math.random() * 0x10), 1);
-    }
-    s[14] = "4";  // bits 12-15 of the time_hi_and_version field to 0010
-    s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1);  // bits 6-7 of the clock_seq_hi_and_reserved to 01
-    s[8] = s[13] = s[18] = s[23] = "-";
-
-    var uuid = s.join("");
-    return uuid;
-}
 
 function registerWebsocketHandlers(ws) {
     ws.onmessage = (event) => {
@@ -100,7 +92,7 @@ function registerWebsocketHandlers(ws) {
             clearInterval(pingInterval);
             connect();
             reconnecting = false;
-        }, 1000);
+        }, fastReconnectInterval);
     };
 
     ws.onerror = function(err) {
@@ -113,60 +105,60 @@ function registerWebsocketHandlers(ws) {
     };
 }
 
-// Periodically check for inactive clients
-setInterval(function() {
-    var now = Date.now();
-    for (var clientId in lastReceived) {
-        // If more than a minute has passed since the last time we received data from this client
-        if (now - lastReceived[clientId] > 2000) {
-            // Fade out the cursor of this client
-            var cursor = cursors[clientId];
-            cursor.style.transition = 'opacity 1s';
-            cursor.style.opacity = '0';
-
-            // Remove the cursor after the transition is complete
-            setTimeout(function() {
-                cursor.parentNode.removeChild(cursor);
-                delete cursors[clientId];
-                delete lastReceived[clientId];
-            }, 1000);  // The duration of the transition
-        }
-    }
-}, 1000);  // Check every second
-
 // connect to the websocket
 function connect() {
-    clientId = createUUID();
+    cursors = {};
+    lastReceived = {};
+
+    clientId = Date.now();
     console.info('Connecting to websocket');
+    const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
+
     registerWebsocketHandlers(ws);
 
     // periodically check if we have received a ping in the last n seconds
     pingInterval = setInterval(function() {
         if (Date.now() - lastPingTimestamp <= pingIntervalTime) return;
-
-        const seconds = pingInterval / 1000;
-        console.info(`No ping received for more than ${seconds} seconds!`);
+        console.info(`No ping received for more than ${seconds / 1000} seconds!`);
         lastPingTimestamp = Date.now();
         connect();
     }, pingIntervalTime / 2);
+
+    removeEventListener('mousemove', mouseMoveHandler);
+    var mouseMoveHandler = document.addEventListener('mousemove', (event) => {
+        const x = event.clientX / window.innerWidth;
+        const y = event.clientY / window.innerHeight;
+
+        // send mouse move event to server
+        const msg = JSON.stringify({clientId, x, y});
+        console.info(`Sending mouse move event: ${msg}`);
+        ws.send(msg);
+    });
+
+    // Periodically check for inactive clients
+    clearInterval(cursorCleanupInterval);
+    cursorCleanupInterval = setInterval(function() {
+        var now = Date.now();
+        for (var clientId in lastReceived) {
+            // If more than n seconds have passed since the last time we received data from this client
+            if (now - lastReceived[clientId] > cursorLifeTime) {
+                // Fade out the cursor of this client
+                var cursor = cursors[clientId];
+                cursor.style.transition = 'opacity 1s';
+                cursor.style.opacity = '0';
+
+                // Remove the cursor after the transition is complete
+                setTimeout(function() {
+                    try {
+                        cursor.parentNode.removeChild(cursor);
+                        delete cursors[clientId];
+                        delete lastReceived[clientId];
+                    } catch (e) {}
+                }, cursorFadeOutDuration);  // The duration of the transition
+            }
+        }
+    }, cursorCleanupInterval);  // Check every second
 }
-
-function letsGo() {
-    console.info('Lets go!');
-    const body = document.querySelector('body');
-    body.style.cursor = 'none';
-}
-
-document.addEventListener('mousemove', (event) => {
-    const x = event.clientX / window.innerWidth;
-    const y = event.clientY / window.innerHeight;
-
-    // send mouse move event to server
-    const msg = JSON.stringify({clientId, x, y});
-    console.info(`Sending mouse move event: ${msg}`);
-    ws.send(msg);
-});
-
 
 // lets party!
 connect();
