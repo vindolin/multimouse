@@ -14,29 +14,22 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	PING_INTERVAL = 10
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
 
 var clientId int32 = 0
-var currentClientId int32 = 0
 
-// handler is the main websocket handler
-func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	log.Println("New connection from:", conn.RemoteAddr())
-	if err != nil {
-		log.Println(err)
-		return
-	}
+type IndexTemplateData struct {
+	ClientId int
+}
 
-	// Assign and increment clientId for each new connection
-	currentClientId = atomic.AddInt32(&clientId, 1)
-	clientId++
-
-	pool.Add(conn)
-
+func handleConnection(conn *websocket.Conn, pool *wsPool) {
 	// Listen for incoming messages
 	for {
 		_, message, err := conn.ReadMessage()
@@ -61,6 +54,23 @@ func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
 	}
 }
 
+// handler is the main websocket handler
+func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	log.Println("New connection from:", conn.RemoteAddr())
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// Assign and increment clientId for each new connection
+	atomic.AddInt32(&clientId, 1)
+
+	pool.Add(conn)
+
+	handleConnection(conn, pool)
+}
+
 func main() {
 	// setup command line arguments
 	parser := argparse.NewParser("run", "run multimouse server")
@@ -70,8 +80,6 @@ func main() {
 	port := parser.String("p", "port",
 		&argparse.Options{Required: false, Help: "port to listen on", Default: "8180"})
 
-	const PING_INTERVAL = 10
-
 	// parse the command line arguments
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -79,10 +87,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// this struct holds the data that will be passed to the index.html template
-	type IndexTemplateData struct {
-		ClientId int
-	}
 	// create a new pool and start it
 	pool := WsPool()
 	go pool.Start()
@@ -107,7 +111,7 @@ func main() {
 	// serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		template.Must(template.ParseFiles("index.html")).Execute(
-			w, IndexTemplateData{ClientId: int(currentClientId)})
+			w, IndexTemplateData{ClientId: int(clientId)})
 	})
 
 	// serve the websocket
