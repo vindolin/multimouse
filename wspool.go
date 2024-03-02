@@ -19,12 +19,23 @@ func WsPool() *wsPool {
 	}
 }
 
+func (p *wsPool) Count() int {
+	count := 0
+	p.clients.Range(func(_, _ interface{}) bool {
+		count++
+		return true
+	})
+	return count
+}
+
 func (p *wsPool) Add(conn *websocket.Conn) {
 	p.clients.Store(conn, true)
+	log.Printf("New connection added. Total active connections: %d", p.Count())
 }
 
 func (p *wsPool) Remove(conn *websocket.Conn) {
 	p.clients.Delete(conn)
+	log.Printf("Connection removed. Total active connections: %d", p.Count())
 }
 
 func (p *wsPool) Broadcast(ip string) {
