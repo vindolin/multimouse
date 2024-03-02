@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync/atomic"
 	"time"
 
 	"github.com/akamensky/argparse"
@@ -22,8 +21,6 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
-
-var clientId int32 = 0
 
 type IndexTemplateData struct {
 	ClientId int
@@ -40,9 +37,8 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 
 		// Parse the incoming message as a mouse event
 		var mouseData struct {
-			ClientId int     `json:"clientId"`
-			X        float64 `json:"x"`
-			Y        float64 `json:"y"`
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
 		}
 		if err := json.Unmarshal(message, &mouseData); err != nil {
 			log.Println("error unmarshalling message:", err)
@@ -50,7 +46,7 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 		}
 
 		// Handle the mouse event...
-		log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
+		// log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
 
 		// Convert the message to a string before broadcasting
 		pool.broadcast <- string(message)
@@ -65,9 +61,6 @@ func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
 		log.Println(err)
 		return
 	}
-
-	// Assign and increment clientId for each new connection
-	atomic.AddInt32(&clientId, 1)
 
 	pool.Add(conn)
 
@@ -119,7 +112,7 @@ func main() {
 	// serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		template.Must(template.ParseFiles("index.html")).Execute(
-			w, IndexTemplateData{ClientId: int(clientId)})
+			w, IndexTemplateData{})
 	})
 
 	// serve the websocket
