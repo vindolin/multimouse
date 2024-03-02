@@ -40,9 +40,9 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 
 		// Parse the incoming message as a mouse event
 		var mouseData struct {
-			ClientId int `json:"clientId"`
-			X        int `json:"x"`
-			Y        int `json:"y"`
+			ClientId int     `json:"clientId"`
+			X        float64 `json:"x"`
+			Y        float64 `json:"y"`
 		}
 		if err := json.Unmarshal(message, &mouseData); err != nil {
 			log.Println("error unmarshalling message:", err)
@@ -50,7 +50,10 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 		}
 
 		// Handle the mouse event...
-		log.Printf("%d: %d, %d\n", mouseData.ClientId, mouseData.X, mouseData.Y)
+		log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
+
+		// Convert the message to a string before broadcasting
+		pool.broadcast <- string(message)
 	}
 }
 
@@ -106,6 +109,11 @@ func main() {
 	// serve the favicon.ico file
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "favicon.ico")
+	})
+
+	// serve the cursor.png file
+	http.HandleFunc("/cursor.png", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "cursor.png")
 	})
 
 	// serve the index.html file

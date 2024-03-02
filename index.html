@@ -21,6 +21,9 @@ let reconnecting;
 
 const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
 
+var cursors = {};
+var lastReceived = {};
+
 function registerWebsocketHandlers(ws) {
     ws.onmessage = (event) => {
 
@@ -28,6 +31,41 @@ function registerWebsocketHandlers(ws) {
         if(event.data.startsWith('ping')) {
             lastPingTimestamp = Date.now();
             return;
+        }
+
+        var data = JSON.parse(event.data);
+
+        // Convert the scaled coordinates back to pixel coordinates
+        var x = data.x * window.innerWidth;
+        var y = data.y * window.innerHeight;
+
+        if(data.clientId != clientId) {
+            if (!cursors[data.clientId]) {
+                var hueRotation = Math.floor(Math.random() * 360);
+
+                var img = document.createElement('img');
+                img.src = 'cursor.png';  // Path to the cursor image
+                img.style.position = 'absolute';
+                img.style.filter = 'hue-rotate(' + hueRotation + 'deg)';
+                img.style.opacity = '0';  // Initially hidden
+                img.style.transition = 'opacity 1s';  // Transition effect
+
+                document.body.appendChild(img);
+                cursors[data.clientId] = img;
+
+                // Fade in the cursor
+                setTimeout(function() {
+                    img.style.opacity = '1';
+                }, 0);
+            }
+
+            // Update the position of the image element
+            var cursor = cursors[data.clientId];
+            cursor.style.left = x + 'px';
+            cursor.style.top = y + 'px';
+
+            // Update the last received time for this client
+            lastReceived[data.clientId] = Date.now();
         }
     };
 
@@ -55,6 +93,27 @@ function registerWebsocketHandlers(ws) {
     };
 }
 
+// Periodically check for inactive clients
+setInterval(function() {
+    var now = Date.now();
+    for (var clientId in lastReceived) {
+        // If more than a minute has passed since the last time we received data from this client
+        if (now - lastReceived[clientId] > 2000) {
+            // Fade out the cursor of this client
+            var cursor = cursors[clientId];
+            cursor.style.transition = 'opacity 1s';
+            cursor.style.opacity = '0';
+
+            // Remove the cursor after the transition is complete
+            setTimeout(function() {
+                cursor.parentNode.removeChild(cursor);
+                delete cursors[clientId];
+                delete lastReceived[clientId];
+            }, 1000);  // The duration of the transition
+        }
+    }
+}, 1000);  // Check every second
+
 // connect to the websocket
 function connect() {
     console.info('Connecting to websocket');
@@ -78,8 +137,8 @@ function letsGo() {
 }
 
 document.addEventListener('mousemove', (event) => {
-    const x = event.clientX;
-    const y = event.clientY;
+    const x = event.clientX / window.innerWidth;
+    const y = event.clientY / window.innerHeight;
 
     // send mouse move event to server
     const msg = JSON.stringify({clientId, x, y});
