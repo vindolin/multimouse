@@ -1,20 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multimouse</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-    </style>
+<title>Multimouse</title>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: rgb(164, 164, 240);
+}
+
+.cursor {
+    transition: opacity 1s, left 50ms, top 50ms;
+}
+</style>
 </head>
 <body>
 <script>
 (() => {
-
 // todo fix cursors not working if server restarts too quickly
+
+// set body background color to random hue
+document.body.style.backgroundColor = `hsl(${Math.random() * 360}, 50%, 80%)`;
 
 const pingIntervalTime = 30 * 1000; // ms
 const loc = window.location;
@@ -61,7 +68,7 @@ function registerWebsocketHandlers(ws) {
                 cursor.style.position = 'absolute';
                 cursor.style.filter = 'hue-rotate(' + hueRotation + 'deg)';
                 cursor.style.opacity = '0';  // Initially hidden
-                cursor.style.transition = 'opacity 1s';
+                //cursor.style.transition = 'opacity 1s, transform 1000ms';
                 // img.style.transition = 'transform 500ms';
 
                 document.body.appendChild(cursor);
@@ -69,7 +76,7 @@ function registerWebsocketHandlers(ws) {
 
                 // Fade in the cursor
                 setTimeout(() => {
-                    cursor.style.opacity = '1';
+                    cursor.style.opacity = '0.8';
                 }, 0);
             }
 
