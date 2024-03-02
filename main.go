@@ -1,29 +1,26 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/akamensky/argparse"
 	"github.com/gorilla/websocket"
 )
 
-// this struct stores the location of an IP address
-type mmrecord struct {
-	Location struct {
-		Latitude  float64 `maxminddb:"latitude"`
-		Longitude float64 `maxminddb:"longitude"`
-	} `maxminddb:"location"`
-}
-
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
+
+var clientId int32 = 0
+var currentClientId int32 = 0
 
 // handler is the main websocket handler
 func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
@@ -34,7 +31,34 @@ func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
 		return
 	}
 
+	// Assign and increment clientId for each new connection
+	currentClientId = atomic.AddInt32(&clientId, 1)
+	clientId++
+
 	pool.Add(conn)
+
+	// Listen for incoming messages
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			break
+		}
+
+		// Parse the incoming message as a mouse event
+		var mouseData struct {
+			ClientId int `json:"clientId"`
+			X        int `json:"x"`
+			Y        int `json:"y"`
+		}
+		if err := json.Unmarshal(message, &mouseData); err != nil {
+			log.Println("error unmarshalling message:", err)
+			continue
+		}
+
+		// Handle the mouse event...
+		log.Printf("%d: %d, %d\n", mouseData.ClientId, mouseData.X, mouseData.Y)
+	}
 }
 
 func main() {
@@ -57,14 +81,11 @@ func main() {
 
 	// this struct holds the data that will be passed to the index.html template
 	type IndexTemplateData struct {
-		DarkMode bool
+		ClientId int
 	}
 	// create a new pool and start it
 	pool := WsPool()
 	go pool.Start()
-
-	go func() {
-	}()
 
 	// send a ping every n seconds
 	// this is used on the javascript side to keep the websocket alive
@@ -86,7 +107,7 @@ func main() {
 	// serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		template.Must(template.ParseFiles("index.html")).Execute(
-			w, IndexTemplateData{})
+			w, IndexTemplateData{ClientId: int(currentClientId)})
 	})
 
 	// serve the websocket

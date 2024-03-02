@@ -1,24 +1,97 @@
-<!-- HTML/JavaScript code -->
 <!DOCTYPE html>
 <html>
+<head>
+    <title>Multimouse</title>
+</head>
 <body>
 <script>
-var socket = new WebSocket("ws://localhost:8080/ws");
-socket.onmessage = function(event) {
-    var pos = JSON.parse(event.data);
-    var img = document.createElement("img");
-    img.src = "mouse.png";
-    img.style.position = "absolute";
-    img.style.left = pos.x + "px";
-    img.style.top = pos.y + "px";
-    img.style.opacity = "0.5";
-    document.body.appendChild(img);
-};
+(() => {
 
-document.onmousemove = function(event) {
-    var pos = {x: event.clientX, y: event.clientY};
-    socket.send(JSON.stringify(pos));
-};
+// initialize with GO template variables
+const clientId = {{.ClientId}};
+
+const pingIntervalTime = 30 * 1000; // ms
+
+const loc = window.location;
+const scheme = loc.protocol === 'https:' ? 'wss :' : 'ws:';
+
+let lastPingTimestamp = Date.now();
+let pingInterval;
+let reconnecting;
+
+const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
+
+function registerWebsocketHandlers(ws) {
+    ws.onmessage = (event) => {
+
+        // check if message is a ping
+        if(event.data.startsWith('ping')) {
+            lastPingTimestamp = Date.now();
+            return;
+        }
+    };
+
+    ws.onclose = function(event) {
+        console.info('Socket is closed. Reconnecting in 1 second');
+
+        if(reconnecting) return;
+        reconnecting = true;
+
+        // fast reconnect
+        setTimeout(() => {
+            clearInterval(pingInterval);
+            connect();
+            reconnecting = false;
+        }, 1000);
+    };
+
+    ws.onerror = function(err) {
+        console.error(`Socket error: ${err.message}, Closing socket`);
+        ws.close();
+    };
+
+    ws.onopen = function() {
+        console.info('Socket connected');
+    };
+}
+
+// connect to the websocket
+function connect() {
+    console.info('Connecting to websocket');
+    registerWebsocketHandlers(ws);
+
+    // periodically check if we have received a ping in the last n seconds
+    pingInterval = setInterval(function() {
+        if (Date.now() - lastPingTimestamp <= pingIntervalTime) return;
+
+        const seconds = pingInterval / 1000;
+        console.info(`No ping received for more than ${seconds} seconds!`);
+        lastPingTimestamp = Date.now();
+        connect();
+    }, pingIntervalTime / 2);
+}
+
+function letsGo() {
+    console.info('Lets go!');
+    const body = document.querySelector('body');
+    body.style.cursor = 'none';
+}
+
+document.addEventListener('mousemove', (event) => {
+    const x = event.clientX;
+    const y = event.clientY;
+
+    // send mouse move event to server
+    const msg = JSON.stringify({clientId, x, y});
+    console.info(`Sending mouse move event: ${msg}`);
+    ws.send(msg);
+});
+
+
+// lets party!
+connect();
+
+})();
 </script>
 </body>
 </html>
