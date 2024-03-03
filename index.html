@@ -12,7 +12,23 @@ body {
 
 .cursor {
     transition: opacity 1s, left 50ms, top 50ms;
+    position: absolute;
+    opacity: 0;
+    animation: cursor-rotation 2s infinite ease-in-out;
 }
+
+@keyframes cursor-rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+    50% {
+        transform: rotate(20deg);
+    }
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
 </style>
 </head>
 <body>
@@ -60,16 +76,10 @@ function registerWebsocketHandlers(ws) {
 
             // If we haven't seen this client before, or if this cursor has been removed due to inactivity
             if (! cursors[data.clientId]) {
-                var hueRotation = Math.floor(Math.random() * 360);
-
                 var cursor = document.createElement('img');
                 cursor.classList.add('cursor');
                 cursor.src = 'cursor.png';  // Path to the cursor image
-                cursor.style.position = 'absolute';
-                cursor.style.filter = 'hue-rotate(' + hueRotation + 'deg)';
-                cursor.style.opacity = '0';  // Initially hidden
-                //cursor.style.transition = 'opacity 1s, transform 1000ms';
-                // img.style.transition = 'transform 500ms';
+                cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
 
                 document.body.appendChild(cursor);
                 cursors[data.clientId] = cursor;
@@ -77,7 +87,7 @@ function registerWebsocketHandlers(ws) {
                 // Fade in the cursor
                 setTimeout(() => {
                     cursor.style.opacity = '0.8';
-                }, 0);
+                });
             }
 
             // Update the position of the image element
