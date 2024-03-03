@@ -16,11 +16,6 @@ const (
 	PING_INTERVAL = 10
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
 type IndexTemplateData struct {
 	ClientId int
 }
