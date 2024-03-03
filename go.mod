@@ -1,4 +1,4 @@
-module github.com/vindolin/multimod
+module github.com/vindolin/multimouse
 
 go 1.22.0
 
