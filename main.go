@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -32,6 +31,7 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
+			pool.Remove(conn)
 			break
 		}
 
@@ -43,35 +43,18 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 		}
 		if err := json.Unmarshal(message, &mouseData); err != nil {
 			log.Println("error unmarshalling message:", err)
-			continue
+			pool.Remove(conn)
+			break
 		}
-
-		// Handle the mouse event...
-		// log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
 
 		// Convert the message to a string before broadcasting
 		pool.broadcast <- string(message)
 	}
 }
 
-// handler is the main websocket handler
-func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	log.Println("New connection from:", conn.RemoteAddr())
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	pool.Add(conn)
-
-	handleConnection(conn, pool)
-}
-
 func main() {
 	// setup command line arguments
 	parser := argparse.NewParser("run", "run multimouse server")
-	// mandatory arguments
 
 	// optional arguments
 	port := parser.String("p", "port",
@@ -89,7 +72,6 @@ func main() {
 	go pool.Start()
 
 	// send a ping every n seconds
-	// this is used on the javascript side to keep the websocket alive
 	go func() {
 		for {
 			time.Sleep(PING_INTERVAL * time.Second)
@@ -100,29 +82,35 @@ func main() {
 		}
 	}()
 
-	// serve the favicon.ico file
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "favicon.ico")
-	})
+	// create an upgrader
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
 
-	// serve the cursor.png file
-	http.HandleFunc("/cursor.png", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "cursor.png")
-	})
+	// handler is the main websocket handler
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		log.Println("New connection from:", conn.RemoteAddr())
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
-	// serve the index.html file
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		template.Must(template.ParseFiles("index.html")).Execute(
-			w, IndexTemplateData{})
-	})
+		pool.Add(conn)
+
+		handleConnection(conn, pool)
+	}
 
 	// serve the websocket
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r, pool)
-	})
+	http.HandleFunc("/ws", handler)
 
 	log.Println("Listening on :" + *port)
 
 	// start the http server
-	log.Fatal(http.ListenAndServe(":"+*port, nil))
+	err = http.ListenAndServe(":"+*port, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
