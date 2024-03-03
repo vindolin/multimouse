@@ -54,9 +54,7 @@ let reconnecting;
 
 var cursors = {};
 var lastReceived = {};
-var mouseMoveHandler;
 var cursorCleanupInterval;
-
 
 function registerWebsocketHandlers(ws) {
     ws.onmessage = (event) => {
@@ -126,28 +124,8 @@ function registerWebsocketHandlers(ws) {
 
 var cleanupRunning = false;
 
-function cleanupOldCursors() {
-    // remove all .cursor elements
-    var oldCursors = document.getElementsByClassName('cursor');
-    // iterate over oldCursors
-    for(const cursor of oldCursors) {
-        // remove the cursor
-        cursor.remove();
-
-        if(0) {
-            cursor.style.transition = 'opacity 1s';
-            cursor.style.opacity = '0';
-
-            cursor.addEventListener('transitionend', () => {
-                cursor.parentNode.removeChild(cursor);
-            });
-        }
-    }
-}
-
 // connect to the websocket
 function connect() {
-    //cleanupOldCursors();
     clientId = Date.now();
     console.info('Connecting to websocket');
     const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
@@ -162,8 +140,7 @@ function connect() {
         connect();
     }, pingIntervalTime / 2);
 
-    removeEventListener('mousemove', mouseMoveHandler);
-    var mouseMoveHandler = document.addEventListener('mousemove', (event) => {
+    document.addEventListener('mousemove', (event) => {
         const x = event.clientX / window.innerWidth;
         const y = event.clientY / window.innerHeight;
 
@@ -174,20 +151,17 @@ function connect() {
     });
 }
 
-
-function removeCursor(cursor) {
-    cursor.style.transition = `opacity ${cursorFadeOutDuration}ms`;
-    cursor.style.opacity = '0';
-
-    cursor.addEventListener('transitionend', () => {
-        cursor.remove();
-    });
-}
-
-function removeStaleCursor(clientId) {
+function removeCursor(clientId) {
     var cursor = cursors[clientId];
     if (cursor) {
-        removeCursor(cursor);
+
+        cursor.style.transition = `opacity ${cursorFadeOutDuration}ms`;
+        cursor.style.opacity = '0';
+
+        cursor.addEventListener('transitionend', () => {
+            cursor.remove();
+        });
+
         delete cursors[clientId];
         delete lastReceived[clientId];
     }
@@ -199,7 +173,7 @@ setInterval(() => {
     for (var clientId in lastReceived) {
         // If more than n seconds have passed since the last time we received data from this client
         if (now - lastReceived[clientId] > cursorLifeTime) {
-            removeStaleCursor(clientId);
+            removeCursor(clientId);
         }
     }
 }, cursorCleanupIntervalTime);  // Check every second
