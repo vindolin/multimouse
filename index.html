@@ -12,6 +12,7 @@ body {
 
 .cursor {
     transition: opacity 1s, left 50ms, top 50ms;
+    transform-origin: 3px 3px;
     position: absolute;
     opacity: 0;
     animation: cursor-rotation 2s infinite ease-in-out;
@@ -19,13 +20,13 @@ body {
 
 @keyframes cursor-rotation {
     0% {
-        transform: rotate(-10deg);
+        transform: rotate(-5deg);
     }
     50% {
-        transform: rotate(10deg);
+        transform: rotate(5deg);
     }
     100% {
-        transform: rotate(-10deg);
+        transform: rotate(-5deg);
     }
 }
 
@@ -43,7 +44,7 @@ const pingIntervalTime = 30 * 1000; // ms
 const loc = window.location;
 const scheme = loc.protocol === 'https:' ? 'wss :' : 'ws:';
 
-const cursorLifeTime = 2000;
+const inactiveCursorLifeTime = 2000;
 const cursorCleanupIntervalTime = 2000;
 const cursorFadeOutDuration = 1000;
 const fastReconnectInterval = 1000;
@@ -172,7 +173,7 @@ setInterval(() => {
     var now = Date.now();
     for (var clientId in lastReceived) {
         // If more than n seconds have passed since the last time we received data from this client
-        if (now - lastReceived[clientId] > cursorLifeTime) {
+        if (now - lastReceived[clientId] > inactiveCursorLifeTime) {
             removeCursor(clientId);
         }
     }
