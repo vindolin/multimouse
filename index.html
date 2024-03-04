@@ -51,16 +51,31 @@ const fastReconnectInterval = 1000;
 
 let lastPingTimestamp = Date.now();
 let pingInterval;
-let reconnecting;
-
-var cursors = {};
-var lastReceived = {};
-var cursorCleanupInterval;
+let cursors = {};
+let lastReceived = {};
+let cursorCleanupInterval;
+let connecting = false;
 
 function registerWebsocketHandlers(ws) {
+
+    // periodically check if we have received a ping in the last n seconds
+    clearInterval(pingInterval);
+    pingInterval = setInterval(() => {
+        if (Date.now() - lastPingTimestamp > pingIntervalTime) {
+            console.error('No ping received in the last 30 seconds. Closing socket');
+            ws.close();
+        }
+
+        // if we are not connected, try to reconnect
+        if (ws.readyState !== ws.OPEN) {
+            console.error('Socket is not open. Reconnecting');
+            connect();
+        }
+    }, pingIntervalTime / 2);
+
     ws.onmessage = (event) => {
         // check if message is a ping
-        if(event.data.startsWith('ping')) {
+        if (event.data.startsWith('ping')) {
             lastPingTimestamp = Date.now();
             return;
         }
@@ -71,7 +86,7 @@ function registerWebsocketHandlers(ws) {
         var x = data.x * window.innerWidth;
         var y = data.y * window.innerHeight;
 
-        if(data.clientId != clientId) { // Don't show our own cursor
+        if (data.clientId != clientId) { // Don't show our own cursor
 
             // If we haven't seen this client before, or if this cursor has been removed due to inactivity
             if (! cursors[data.clientId]) {
@@ -102,14 +117,10 @@ function registerWebsocketHandlers(ws) {
     ws.onclose = (event) => {
         console.info('Socket is closed. Reconnecting in 1 second');
 
-        if(reconnecting) return;
-        reconnecting = true;
-
+        if (connecting) return;
         // fast reconnect
         setTimeout(() => {
-            clearInterval(pingInterval);
             connect();
-            reconnecting = false;
         }, fastReconnectInterval);
     };
 
@@ -120,6 +131,7 @@ function registerWebsocketHandlers(ws) {
 
     ws.onopen = function() {
         console.info('Socket connected');
+        connecting = false;
     };
 }
 
@@ -127,19 +139,12 @@ var cleanupRunning = false;
 
 // connect to the websocket
 function connect() {
+    connecting = true;
     clientId = Date.now();
     console.info('Connecting to websocket');
     const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
 
     registerWebsocketHandlers(ws);
-
-    // periodically check if we have received a ping in the last n seconds
-    pingInterval = setInterval(() => {
-        if (Date.now() - lastPingTimestamp <= pingIntervalTime) return;
-        console.info(`No ping received for more than ${seconds / 1000} seconds!`);
-        lastPingTimestamp = Date.now();
-        connect();
-    }, pingIntervalTime / 2);
 
     document.addEventListener('mousemove', (event) => {
         const x = event.clientX / window.innerWidth;
@@ -179,8 +184,9 @@ setInterval(() => {
     }
 }, cursorCleanupIntervalTime);  // Check every second
 
-// lets party!
 connect();
+
+// lets party!
 
 })();
 </script>

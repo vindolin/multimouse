@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	PING_INTERVAL = 10
+	PING_INTERVAL = 10 * time.Second
 )
 
 type IndexTemplateData struct {
@@ -22,6 +22,9 @@ type IndexTemplateData struct {
 }
 
 func handleConnection(conn *websocket.Conn, pool *wsPool) {
+	// Set a read deadline on the connection
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+
 	// Listen for incoming messages
 	for {
 		_, message, err := conn.ReadMessage()
@@ -29,6 +32,9 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 			log.Println("read:", err)
 			break
 		}
+
+		// Extend the read deadline after successfully reading a message
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 		// Parse the incoming message as a mouse event
 		var mouseData struct {
@@ -92,7 +98,7 @@ func main() {
 	// this is used on the javascript side to keep the websocket alive
 	go func() {
 		for {
-			time.Sleep(PING_INTERVAL * time.Second)
+			time.Sleep(PING_INTERVAL)
 
 			var payload = fmt.Sprintf(
 				"ping %d", time.Now().Unix())
