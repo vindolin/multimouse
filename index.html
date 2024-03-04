@@ -118,6 +118,7 @@ function registerWebsocketHandlers(ws) {
         console.info('Socket is closed. Reconnecting in 1 second');
 
         if (connecting) return;
+
         // fast reconnect
         setTimeout(() => {
             connect();
