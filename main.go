@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -21,20 +22,39 @@ type IndexTemplateData struct {
 	ClientId int
 }
 
+func spinner() func() {
+	symbols := []rune("-\\|/")
+	i := 0
+	return func() {
+		fmt.Print("\033[1D\033[K" + string(symbols[i]))
+		i = (i + 1) % len(symbols)
+	}
+}
+
+var spin = spinner()
+
 func handleConnection(conn *websocket.Conn, pool *wsPool) {
-	// Set a read deadline on the connection
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	// // Set a read deadline on the connection
+	// conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
 	// Listen for incoming messages
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
-			break
+			netErr, ok := err.(net.Error)
+			if ok && netErr.Timeout() {
+				// If it's a timeout error, log it and continue reading messages
+				log.Println("read timeout:", err)
+				continue
+			} else {
+				// For other errors, log them and break out of the loop
+				log.Println("read:", err)
+				break
+			}
 		}
 
-		// Extend the read deadline after successfully reading a message
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		// // Extend the read deadline after successfully reading a message
+		// conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 		// Parse the incoming message as a mouse event
 		var mouseData struct {
@@ -49,6 +69,8 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 
 		// Handle the mouse event...
 		// log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
+		//fmt.Print(".")
+		spin()
 
 		// Convert the message to a string before broadcasting
 		pool.broadcast <- string(message)

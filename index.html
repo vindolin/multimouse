@@ -12,10 +12,12 @@ body {
 
 .cursor {
     transition: opacity 1s, left 50ms, top 50ms;
+    transition: scale 100ms ease-out;
     transform-origin: 3px 3px;
     position: absolute;
     opacity: 0;
     animation: cursor-rotation 2s infinite ease-in-out;
+    scale: 100;
 }
 
 @keyframes cursor-rotation {
@@ -46,7 +48,6 @@ const scheme = loc.protocol === 'https:' ? 'wss :' : 'ws:';
 
 const inactiveCursorLifeTime = 2000;
 const cursorCleanupIntervalTime = 2000;
-const cursorFadeOutDuration = 1000;
 const fastReconnectInterval = 1000;
 
 let lastPingTimestamp = Date.now();
@@ -59,13 +60,19 @@ let connecting = false;
 function registerWebsocketHandlers(ws) {
 
     // periodically check if we have received a ping in the last n seconds
+    console.log('Registering websocket handlers');
+
+    // clear previous ping interval
     clearInterval(pingInterval);
+
+    // and start a new one
     pingInterval = setInterval(() => {
+        console.info('Checking ping')
+        console.debug('Last ping', Date.now() - lastPingTimestamp, pingIntervalTime);
         if (Date.now() - lastPingTimestamp > pingIntervalTime) {
             console.error('No ping received in the last 30 seconds. Closing socket');
             ws.close();
         }
-
         // if we are not connected, try to reconnect
         if (ws.readyState !== ws.OPEN) {
             console.error('Socket is not open. Reconnecting');
@@ -74,26 +81,32 @@ function registerWebsocketHandlers(ws) {
     }, pingIntervalTime / 2);
 
     ws.onmessage = (event) => {
+        console.debug('received message', event.data)
+
         // check if message is a ping
         if (event.data.startsWith('ping')) {
+            console.info('Received ping');
             lastPingTimestamp = Date.now();
             return;
         }
 
         var data = JSON.parse(event.data);
 
-        // Convert the scaled coordinates back to pixel coordinates
-        var x = data.x * window.innerWidth;
-        var y = data.y * window.innerHeight;
-
         if (data.clientId != clientId) { // Don't show our own cursor
+            // Convert the scaled coordinates back to pixel coordinates
+            var x = data.x * window.innerWidth;
+            var y = data.y * window.innerHeight;
 
             // If we haven't seen this client before, or if this cursor has been removed due to inactivity
             if (! cursors[data.clientId]) {
+                console.info('Creating new cursor', data.clientId);
+
                 var cursor = document.createElement('img');
                 cursor.classList.add('cursor');
                 cursor.src = 'cursor.png';  // Path to the cursor image
                 cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
+                cursor.style.left = Math.random() * window.innerWidth + 'px';
+                cursor.style.top = Math.random() * window.innerHeight + 'px';
 
                 document.body.appendChild(cursor);
                 cursors[data.clientId] = cursor;
@@ -101,7 +114,10 @@ function registerWebsocketHandlers(ws) {
                 // Fade in the cursor
                 setTimeout(() => {
                     cursor.style.opacity = '0.9';
+                    cursor.style.scale = '1.0';
                 });
+            } else {
+                console.info('Cursor already exists');
             }
 
             // Update the position of the image element
@@ -111,13 +127,13 @@ function registerWebsocketHandlers(ws) {
 
             // Update the last received time for this client
             lastReceived[data.clientId] = Date.now();
+        } else {
+            console.info('Received our own cursor');
         }
     };
 
     ws.onclose = (event) => {
         console.info('Socket is closed. Reconnecting in 1 second');
-
-        if (connecting) return;
 
         // fast reconnect
         setTimeout(() => {
@@ -126,8 +142,9 @@ function registerWebsocketHandlers(ws) {
     };
 
     ws.onerror = (err) => {
-        console.error(`Socket error: ${err.message}, Closing socket`);
+        console.info(`Socket error: ${err.message}, Closing socket`);
         ws.close();
+        connecting = false;
     };
 
     ws.onopen = function() {
@@ -138,32 +155,57 @@ function registerWebsocketHandlers(ws) {
 
 var cleanupRunning = false;
 
+var lastMouseCoords = {x: 0, y: 0};
+
+function sendMouseCoords(event, ws) {
+    const x = event.clientX / window.innerWidth;
+    const y = event.clientY / window.innerHeight;
+
+    if (x === lastMouseCoords.x && y === lastMouseCoords.y) return;
+
+    // send mouse move event to server
+    const msg = JSON.stringify({clientId, x, y});
+    console.debug(`Sending mouse move event: ${msg}`);
+
+    try {
+        ws.send(msg);
+    } catch (e) {
+        // console.error('Error sending mouse move event', e);
+    }
+}
+
+let mouseMoveHandler = null;
+
 // connect to the websocket
 function connect() {
+    if(connecting) {
+        console.info('Already connecting');
+        return;
+    }
+
     connecting = true;
-    clientId = Date.now();
-    console.info('Connecting to websocket');
+    clientId = Date.now() + Math.floor(Math.random() * 100);
+    console.info(`Client ${clientId} Connecting to websocket`);
     const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
 
     registerWebsocketHandlers(ws);
 
-    document.addEventListener('mousemove', (event) => {
-        const x = event.clientX / window.innerWidth;
-        const y = event.clientY / window.innerHeight;
+   // clear last mousemove listener
+    if (mouseMoveHandler) {
+        document.removeEventListener('mousemove', mouseMoveHandler, {passive: true,});
+    }
 
-        // send mouse move event to server
-        const msg = JSON.stringify({clientId, x, y});
-        // console.info(`Sending mouse move event: ${msg}`);
-        try {ws.send(msg);} catch (e) {}
-    });
+    mouseMoveHandler = (event) => sendMouseCoords(event, ws);
+    document.addEventListener('mousemove', mouseMoveHandler, {passive: true,});
 }
 
 function removeCursor(clientId) {
     var cursor = cursors[clientId];
     if (cursor) {
 
-        cursor.style.transition = `opacity ${cursorFadeOutDuration}ms`;
+        cursor.style.transition = `opacity 1000ms, scale 1000ms`;
         cursor.style.opacity = '0';
+        cursor.style.scale = '0';
 
         cursor.addEventListener('transitionend', () => {
             cursor.remove();
