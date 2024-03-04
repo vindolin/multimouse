@@ -130,7 +130,7 @@ func main() {
 
 	// serve the cursor.png file
 	http.HandleFunc("/cursor.png", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "cursor.png")
+		http.ServeFile(w, r, "cursorb.png")
 	})
 
 	// serve the index.html file
