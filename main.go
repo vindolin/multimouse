@@ -34,8 +34,6 @@ func spinner() func() {
 var spin = spinner()
 
 func handleConnection(conn *websocket.Conn, pool *wsPool) {
-	// // Set a read deadline on the connection
-	// conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
 	// Listen for incoming messages
 	for {
@@ -52,9 +50,6 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 				break
 			}
 		}
-
-		// // Extend the read deadline after successfully reading a message
-		// conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 		// Parse the incoming message as a mouse event
 		var mouseData struct {
