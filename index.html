@@ -53,7 +53,7 @@ body {
 </style>
 </head>
 <body>
-<img src="cursor_self.png" id="cursor-self">
+<img src="/static/cursor_self.png" id="cursor-self">
 <script>
 (() => {
 // todo fix cursors not working if server restarts too quickly
@@ -128,10 +128,12 @@ function registerWebsocketHandlers(ws) {
                 console.info('Creating new cursor', data.clientId);
 
                 const cursor = document.createElement('img');
-                cursor.src = 'cursor_others.png';
+                cursor.src = '/static/cursor_others.png';
                 // apply the cursor-other class
                 cursor.classList.add('cursor-others');
                 cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
+                // set zoom origin to the cursor position
+                cursor.style.transformOrigin = `${data.x * 100}% ${data.y * 100}%`;
 
                 // add the drop-in animation
                 cursor.style.transform = 'scale(0.4)';

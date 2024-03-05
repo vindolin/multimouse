@@ -130,13 +130,8 @@ func main() {
 		http.ServeFile(w, r, "favicon.ico")
 	})
 
-	// serve the cursors
-	http.HandleFunc("/cursor_self.png", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "cursor_self.png")
-	})
-	http.HandleFunc("/cursor_others.png", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "cursor_others.png")
-	})
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
