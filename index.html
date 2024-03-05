@@ -11,23 +11,20 @@ body {
     background-color: rgb(164, 164, 240);
 }
 
-.cursor {
-    transition: opacity 1s, left 50ms, top 50ms;
-    transition: scale 500ms ease-out;
-    transform-origin: 3px 3px;
+.cursor-others {
     position: absolute;
-    opacity: 0;
+    transform-origin: 4% 4%;
+    transition: opacity 1s, left 50ms, top 50ms, transform 100ms linear;
     animation: cursor-rotation 2s infinite ease-in-out;
-    scale: 100;
+    opacity: '0.9';
 }
 
 #cursor-self {
-    transform-origin: 3px 3px;
+    transform-origin: 4% 4%;
     position: absolute;
-    animation: cursor-rotation 2s infinite ease-in-out;
-    width: 160px;
-    height: 160px;
     z-index: 1000;
+    /*animation: cursor-rotation 2s infinite ease-in-out;*/
+    transform: scale(0.4);
 }
 
 @keyframes cursor-rotation {
@@ -39,6 +36,17 @@ body {
     }
     100% {
         transform: rotate(-10deg);
+    }
+}
+
+@keyframes cursor-drop-in {
+    0% {
+        transform: scale(20);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(0.4);
+        opacity: 0.9;
     }
 }
 
@@ -60,6 +68,8 @@ const scheme = loc.protocol === 'https:' ? 'wss :' : 'ws:';
 const inactiveCursorLifeTime = 2000;
 const cursorCleanupIntervalTime = 2000;
 const fastReconnectInterval = 1000;
+
+const cursorSelf = document.getElementById('cursor-self');
 
 let lastPingTimestamp = Date.now();
 let pingInterval;
@@ -89,7 +99,7 @@ function registerWebsocketHandlers(ws) {
             console.error('Socket is not open. Reconnecting');
             connect();
         }
-    }, pingIntervalTime / 2);
+    }, pingIntervalTime -1);
 
     ws.onmessage = (event) => {
         console.debug('received message', event.data)
@@ -101,38 +111,41 @@ function registerWebsocketHandlers(ws) {
             return;
         }
 
-        var data = JSON.parse(event.data);
+        try {
+            var data = JSON.parse(event.data);
+        } catch (e) {
+            console.error('Error parsing JSON', e);
+            return;
+        }
 
         if (data.clientId != clientId) { // Don't show our own cursor
             // Convert the scaled coordinates back to pixel coordinates
-            var x = data.x * window.innerWidth;
-            var y = data.y * window.innerHeight;
+            const x = data.x * window.innerWidth;
+            const y = data.y * window.innerHeight;
 
             // If we haven't seen this client before, or if this cursor has been removed due to inactivity
             if (! cursors[data.clientId]) {
                 console.info('Creating new cursor', data.clientId);
 
-                var cursor = document.createElement('img');
-                cursor.classList.add('cursor');
-                cursor.src = 'cursor.png';  // Path to the cursor image
-                cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
-                cursor.style.left = Math.random() * window.innerWidth + 'px';
-                cursor.style.top = Math.random() * window.innerHeight + 'px';
+                const cursor = document.createElement('img');
+                cursor.src = 'cursor_others.png';
+                // apply the cursor-other class
+                cursor.classList.add('cursor-others');
+
+                // add the drop-in animation
+                cursor.style.transform = 'scale(0.4)';
+                cursor.style.animation = 'cursor-drop-in 300ms ease-in-out';
 
                 document.body.appendChild(cursor);
                 cursors[data.clientId] = cursor;
 
-                // Fade in the cursor
-                setTimeout(() => {
-                    cursor.style.opacity = '0.9';
-                    cursor.style.scale = '0.5';
-                });
             } else {
                 console.info('Cursor already exists');
+
             }
 
             // Update the position of the image element
-            var cursor = cursors[data.clientId];
+            const cursor = cursors[data.clientId];
             cursor.style.left = x + 'px';
             cursor.style.top = y + 'px';
 
@@ -169,8 +182,8 @@ var cleanupRunning = false;
 var lastMouseCoords = {x: 0, y: 0};
 
 function sendMouseCoords(event, ws) {
-    document.getElementById('cursor-self').style.left = event.clientX + 'px';
-    document.getElementById('cursor-self').style.top = event.clientY + 'px';
+    cursorSelf.style.left = event.clientX + 'px';
+    cursorSelf.style.top = event.clientY + 'px';
 
     const x = event.clientX / window.innerWidth;
     const y = event.clientY / window.innerHeight;

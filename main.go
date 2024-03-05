@@ -75,8 +75,10 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 // handler is the main websocket handler
 func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
 	var upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
+		// ReadBufferSize:  1024,
+		// WriteBufferSize: 1024,
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -128,14 +130,12 @@ func main() {
 		http.ServeFile(w, r, "favicon.ico")
 	})
 
-	// serve the cursor.png file
-	http.HandleFunc("/cursor.png", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "cursorb.png")
-	})
-
-	// serve the cursor.png file
+	// serve the cursors
 	http.HandleFunc("/cursor_self.png", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "cursor_self.png")
+	})
+	http.HandleFunc("/cursor_others.png", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "cursor_others.png")
 	})
 
 	// serve the index.html file
