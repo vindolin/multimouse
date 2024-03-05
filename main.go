@@ -133,6 +133,11 @@ func main() {
 		http.ServeFile(w, r, "cursorb.png")
 	})
 
+	// serve the cursor.png file
+	http.HandleFunc("/cursor_self.png", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "cursor_self.png")
+	})
+
 	// serve the index.html file
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		template.Must(template.ParseFiles("index.html")).Execute(

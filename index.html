@@ -3,6 +3,7 @@
 <head>
 <title>Multimouse</title>
 <style>
+
 body {
     margin: 0;
     padding: 0;
@@ -20,6 +21,15 @@ body {
     scale: 100;
 }
 
+#cursor-self {
+    transform-origin: 3px 3px;
+    position: absolute;
+    animation: cursor-rotation 2s infinite ease-in-out;
+    width: 160px;
+    height: 160px;
+    z-index: 1000;
+}
+
 @keyframes cursor-rotation {
     0% {
         transform: rotate(-10deg);
@@ -35,6 +45,7 @@ body {
 </style>
 </head>
 <body>
+<img src="cursor_self.png" id="cursor-self">
 <script>
 (() => {
 // todo fix cursors not working if server restarts too quickly
@@ -158,6 +169,9 @@ var cleanupRunning = false;
 var lastMouseCoords = {x: 0, y: 0};
 
 function sendMouseCoords(event, ws) {
+    document.getElementById('cursor-self').style.left = event.clientX + 'px';
+    document.getElementById('cursor-self').style.top = event.clientY + 'px';
+
     const x = event.clientX / window.innerWidth;
     const y = event.clientY / window.innerHeight;
 
