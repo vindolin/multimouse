@@ -78,6 +78,40 @@ let lastReceived = {};
 let cursorCleanupInterval;
 let connecting = false;
 
+function addCursor(data) {
+    // Convert the scaled coordinates back to pixel coordinates
+    const x = data.x * window.innerWidth;
+    const y = data.y * window.innerHeight;
+
+    // If we haven't seen this client before, or if this cursor has been removed due to inactivity
+    if (! cursors[data.clientId]) {
+        console.info('Creating new cursor', data.clientId);
+
+        const cursor = document.createElement('img');
+        cursor.src = '/static/cursor_others.png';
+        // apply the cursor-other class
+        cursor.classList.add('cursor-others');
+        cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
+        // set zoom origin to the cursor position
+        cursor.style.transformOrigin = `${data.x * 100}% ${data.y * 100}%`;
+
+        // add the drop-in animation
+        cursor.style.transform = 'scale(0.4)';
+        cursor.style.animation = 'cursor-rotation 2s infinite ease-in-out, cursor-drop-in 300ms ease-in-out';
+
+        document.body.appendChild(cursor);
+        cursors[data.clientId] = cursor;
+    } else {
+        console.info('Cursor already exists');
+    }
+
+    // Update the position of the image element
+    const cursor = cursors[data.clientId];
+    cursor.style.left = x + 'px';
+    cursor.style.top = y + 'px';
+
+}
+
 function registerWebsocketHandlers(ws) {
 
     // periodically check if we have received a ping in the last n seconds
@@ -119,38 +153,7 @@ function registerWebsocketHandlers(ws) {
         }
 
         if (data.clientId != clientId) { // Don't show our own cursor
-            // Convert the scaled coordinates back to pixel coordinates
-            const x = data.x * window.innerWidth;
-            const y = data.y * window.innerHeight;
-
-            // If we haven't seen this client before, or if this cursor has been removed due to inactivity
-            if (! cursors[data.clientId]) {
-                console.info('Creating new cursor', data.clientId);
-
-                const cursor = document.createElement('img');
-                cursor.src = '/static/cursor_others.png';
-                // apply the cursor-other class
-                cursor.classList.add('cursor-others');
-                cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
-                // set zoom origin to the cursor position
-                cursor.style.transformOrigin = `${data.x * 100}% ${data.y * 100}%`;
-
-                // add the drop-in animation
-                cursor.style.transform = 'scale(0.4)';
-                cursor.style.animation = 'cursor-rotation 2s infinite ease-in-out, cursor-drop-in 300ms ease-in-out';
-
-                document.body.appendChild(cursor);
-                cursors[data.clientId] = cursor;
-
-            } else {
-                console.info('Cursor already exists');
-
-            }
-
-            // Update the position of the image element
-            const cursor = cursors[data.clientId];
-            cursor.style.left = x + 'px';
-            cursor.style.top = y + 'px';
+            addCursor(data);
 
             // Update the last received time for this client
             lastReceived[data.clientId] = Date.now();
@@ -208,7 +211,7 @@ let mouseMoveHandler = null;
 
 // connect to the websocket
 function connect() {
-    if(connecting) {
+    if (connecting) {
         console.info('Already connecting');
         return;
     }
@@ -225,6 +228,7 @@ function connect() {
         document.removeEventListener('mousemove', mouseMoveHandler, {passive: true,});
     }
 
+    // add new mousemove listener
     mouseMoveHandler = (event) => sendMouseCoords(event, ws);
     document.addEventListener('mousemove', mouseMoveHandler, {passive: true,});
 }
@@ -257,9 +261,8 @@ setInterval(() => {
     }
 }, cursorCleanupIntervalTime);  // Check every second
 
-connect();
-
 // lets party!
+connect();
 
 })();
 </script>
