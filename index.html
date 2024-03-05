@@ -23,19 +23,19 @@ body {
     transform-origin: 4% 4%;
     position: absolute;
     z-index: 1000;
-    /*animation: cursor-rotation 2s infinite ease-in-out;*/
+    animation: cursor-rotation 2s infinite ease-in-out;
     transform: scale(0.4);
 }
 
 @keyframes cursor-rotation {
     0% {
-        transform: rotate(-10deg);
+        transform: scale(0.4) rotate(-10deg);
     }
     50% {
-        transform: rotate(0deg);
+        transform: scale(0.4) rotate(0deg);
     }
     100% {
-        transform: rotate(-10deg);
+        transform: scale(0.4) rotate(-10deg);
     }
 }
 
@@ -131,10 +131,11 @@ function registerWebsocketHandlers(ws) {
                 cursor.src = 'cursor_others.png';
                 // apply the cursor-other class
                 cursor.classList.add('cursor-others');
+                cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
 
                 // add the drop-in animation
                 cursor.style.transform = 'scale(0.4)';
-                cursor.style.animation = 'cursor-drop-in 300ms ease-in-out';
+                cursor.style.animation = 'cursor-rotation 2s infinite ease-in-out, cursor-drop-in 300ms ease-in-out';
 
                 document.body.appendChild(cursor);
                 cursors[data.clientId] = cursor;
