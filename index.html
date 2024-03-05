@@ -16,7 +16,7 @@ body {
     transform-origin: -3% -1%;
     transition: opacity 1s, left 50ms, top 50ms, transform 100ms linear;
     animation: cursor-rotation 2s infinite ease-in-out;
-    opacity: '0.9';
+    opacity: 0.9;
 }
 
 #cursor-self {
@@ -213,7 +213,7 @@ function connect() {
 
     connecting = true;
     clientId = Date.now() + Math.floor(Math.random() * 100);
-    console.info(`Client ${clientId} Connecting to websocket`);
+    console.info(`Client ${clientId} Connecting to websocket ${scheme}//${loc.host}/ws`);
     const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
 
     registerWebsocketHandlers(ws);
