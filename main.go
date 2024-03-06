@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -32,6 +33,7 @@ func spinner() func() {
 }
 
 var spin = spinner()
+var noSpinner = false
 
 func handleConnection(conn *websocket.Conn, pool *wsPool) {
 
@@ -65,7 +67,10 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 		// Handle the mouse event...
 		// log.Printf("%d: %f, %f\n", mouseData.ClientId, mouseData.X, mouseData.Y)
 		//fmt.Print(".")
-		spin()
+
+		if !noSpinner {
+			spin()
+		}
 
 		// Convert the message to a string before broadcasting
 		pool.broadcast <- string(message)
@@ -93,6 +98,9 @@ func handler(w http.ResponseWriter, r *http.Request, pool *wsPool) {
 	handleConnection(conn, pool)
 }
 
+//go:embed index.html static
+var static embed.FS
+
 func main() {
 	// setup command line arguments
 	parser := argparse.NewParser("run", "run multimouse server")
@@ -102,6 +110,9 @@ func main() {
 	port := parser.String("p", "port",
 		&argparse.Options{Required: false, Help: "port to listen on", Default: "8180"})
 
+	noSpinner = *parser.Flag("n", "no-spinner",
+		&argparse.Options{Required: false, Help: "disable spinner"})
+
 	// parse the command line arguments
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -109,7 +120,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// create a new pool and start it
+	// create a new pool of websockets and start it
 	pool := WsPool()
 	go pool.Start()
 
@@ -125,19 +136,30 @@ func main() {
 		}
 	}()
 
-	// serve the favicon.ico file
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "favicon.ico")
-	})
+	if false { // serve the static files from the normal filesystem
+		fs := http.FileServer(http.Dir("./static"))
+		http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+		// serve the index.html file
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			template.Must(template.ParseFiles("index.html")).Execute(
+				w, IndexTemplateData{})
+		})
 
-	// serve the index.html file
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		template.Must(template.ParseFiles("index.html")).Execute(
-			w, IndexTemplateData{})
-	})
+	} else { // embed the static files into the binary
+		fs := http.FS(static)
+		http.Handle("/static/", http.FileServer(fs))
+
+		// serve the index.html file
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			tmpl, err := template.ParseFS(static, "index.html")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			tmpl.Execute(w, IndexTemplateData{})
+		})
+	}
 
 	// serve the websocket
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
