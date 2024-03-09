@@ -136,17 +136,9 @@ func main() {
 		}
 	}()
 
-	if false { // serve the static files from the normal filesystem
-		fs := http.FileServer(http.Dir("./static"))
-		http.Handle("/static/", http.StripPrefix("/static/", fs))
+	embedStatic := true
 
-		// serve the index.html file
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			template.Must(template.ParseFiles("index.html")).Execute(
-				w, IndexTemplateData{})
-		})
-
-	} else { // embed the static files into the binary
+	if embedStatic { // serve the static files from the normal filesystem
 		fs := http.FS(static)
 		http.Handle("/static/", http.FileServer(fs))
 
@@ -158,6 +150,15 @@ func main() {
 				return
 			}
 			tmpl.Execute(w, IndexTemplateData{})
+		})
+	} else { // embed the static files into the binary
+		fs := http.FileServer(http.Dir("./static"))
+		http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+		// serve the index.html file
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			template.Must(template.ParseFiles("index.html")).Execute(
+				w, IndexTemplateData{})
 		})
 	}
 
