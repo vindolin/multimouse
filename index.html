@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta charset="utf-8">
 
-<title>Multimousex</title>
+<title>🐭 MultiMouse 🐭</title>
 <style>
 
 body {
@@ -62,10 +62,10 @@ body {
 
 @keyframes cursor-click {
     from {
-        transform: scale(0.4);
+        transform: scale(0.3) rotate(0deg) translate(0px, 0px);
     }
     to {
-        transform: scale(0.4) rotate(-30deg) translate(-10px, 10px);
+        transform: scale(0.4) rotate(-30deg) translate(-50px, 10px);
     }
 }
 
@@ -128,11 +128,18 @@ function setOtherCursor(data) {
 
         // set zoom origin to the cursor position
         cursor.style.transformOrigin = `${data.x * 100}% ${data.y * 100}%`;
+
         // add the drop-in animation
-        cursor.style.transform = 'scale(0.4)';
         cursor.style.animation = 'cursor-rotation 2s infinite ease-in-out, cursor-drop-in 300ms ease-in-out';
 
         document.body.appendChild(cursor);
+
+        // cursor.onanimationend = (e) => {console.log(e);}; // why isn't this event firing?
+        // workaround for onanimationend not firing
+        setTimeout(() => {
+            cursor.style.transformOrigin = `-3% -1%`;
+        }, 300);
+
         cursors[data.clientId] = cursor;
     } else {
         if(debug) console.info('Cursor already exists');
