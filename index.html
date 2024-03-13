@@ -63,11 +63,9 @@ body {
 @keyframes cursor-click {
     from {
         transform: scale(0.4);
-        translate: 0px;
     }
     to {
-        transform: scale(0.4) rotate(-20deg);
-        translate: -5px -5px;
+        transform: scale(0.4) rotate(-30deg) translate(-10px, 10px);
     }
 }
 
@@ -109,7 +107,7 @@ function clickAnimation(cursor, data) {
         }
     };
     if(data.click != 0) {
-        cursor.style.animation = 'cursor-click 100ms';
+        cursor.style.animation = 'cursor-click 50ms';
     }
 }
 
@@ -126,7 +124,7 @@ function setOtherCursor(data) {
         cursor.src = '/static/cursor_others.png';
         // apply the cursor-other class
         cursor.classList.add('cursor', 'cursor-others');
-        cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg),`;  // without this trailing comma drop shadow is gone?!
+        cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg) drop-shadow(15px 15px 8px rgba(0, 0, 0, 0.3))`;  // can a filter just be added to another one?
 
         // set zoom origin to the cursor position
         cursor.style.transformOrigin = `${data.x * 100}% ${data.y * 100}%`;
