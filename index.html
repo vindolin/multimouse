@@ -16,20 +16,25 @@ body {
     cursor: none;
 }
 
+.cursor {
+    left: 50%;
+    top: 50%;
+    animation: cursor-rotation 2s infinite ease-in-out;
+    filter: drop-shadow(15px 15px 8px rgba(0, 0, 0, 0.3));
+    will-change: transform; /* without this hack, the cursor is not antialiased in chrome 🙄 */
+}
+
 .cursor-others {
     position: absolute;
     transform-origin: -3% -1%;
     transition: opacity 1s, left 50ms, top 50ms, transform 100ms linear;
-    animation: cursor-rotation 2s infinite ease-in-out;
     opacity: 0.9;
 }
 
 #cursor-self {
-    transform-origin: -3% -1%;
     position: absolute;
+    transform-origin: -3% -1%;
     z-index: 1000;
-    animation: cursor-rotation 2s infinite ease-in-out;
-    transform: scale(0.4);
 }
 
 @keyframes cursor-rotation {
@@ -46,7 +51,7 @@ body {
 
 @keyframes cursor-drop-in {
     0% {
-        transform: scale(20);
+        transform: scale(20.0);
         opacity: 0;
     }
     100% {
@@ -55,13 +60,25 @@ body {
     }
 }
 
+@keyframes cursor-click {
+    from {
+        transform: scale(0.4);
+        translate: 0px;
+    }
+    to {
+        transform: scale(0.4) rotate(-20deg);
+        translate: -5px -5px;
+    }
+}
+
 </style>
 </head>
 <body>
-<img src="/static/cursor_self.png" id="cursor-self" alt="cursor">
+<img src="/static/cursor_self.png" id="cursor-self" alt="cursor" class="cursor">
 <script>
 (() => {
-// todo fix cursors not working if server restarts too quickly
+
+// setTimeout(function(){debugger;}, 5000)  // uncomment to freeze the screen for debugging
 
 // set body background color to random hue
 document.body.style.backgroundColor = `hsl(${Math.random() * 360}, 50%, 80%)`;
@@ -85,7 +102,18 @@ let lastReceived = {};
 let cursorCleanupInterval;
 let connecting = false;
 
-function addCursor(data) {
+function clickAnimation(cursor, data) {
+    cursor.onanimationend = (e) => {
+        if(e.animationName === 'cursor-click') {
+            cursor.style.animation = 'cursor-rotation 2s infinite ease-in-out';
+        }
+    };
+    if(data.click != 0) {
+        cursor.style.animation = 'cursor-click 100ms';
+    }
+}
+
+function setOtherCursor(data) {
     // Convert the scaled coordinates back to pixel coordinates
     const x = data.x * window.innerWidth;
     const y = data.y * window.innerHeight;
@@ -97,11 +125,11 @@ function addCursor(data) {
         const cursor = document.createElement('img');
         cursor.src = '/static/cursor_others.png';
         // apply the cursor-other class
-        cursor.classList.add('cursor-others');
-        cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg)`;
+        cursor.classList.add('cursor', 'cursor-others');
+        cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg),`;  // without this trailing comma drop shadow is gone?!
+
         // set zoom origin to the cursor position
         cursor.style.transformOrigin = `${data.x * 100}% ${data.y * 100}%`;
-
         // add the drop-in animation
         cursor.style.transform = 'scale(0.4)';
         cursor.style.animation = 'cursor-rotation 2s infinite ease-in-out, cursor-drop-in 300ms ease-in-out';
@@ -117,6 +145,7 @@ function addCursor(data) {
     cursor.style.left = x + 'px';
     cursor.style.top = y + 'px';
 
+    clickAnimation(cursor, data);
 }
 
 function registerWebsocketHandlers(ws) {
@@ -143,8 +172,6 @@ function registerWebsocketHandlers(ws) {
     }, pingIntervalTime -1);
 
     ws.onmessage = (event) => {
-        if(debug) console.debug('received message', event.data)
-
         // check if message is a ping
         if (event.data.startsWith('ping')) {
             console.info('Received ping');
@@ -160,7 +187,8 @@ function registerWebsocketHandlers(ws) {
         }
 
         if (data.clientId != clientId) { // Don't show our own cursor
-            addCursor(data);
+            if(debug) console.debug('received message', event.data)
+            setOtherCursor(data);
 
             // Update the last received time for this client
             lastReceived[data.clientId] = Date.now();
@@ -194,19 +222,12 @@ var cleanupRunning = false;
 
 var lastMouseCoords = {x: 0, y: 0};
 
-function sendMouseCoords(event, ws) {
-    cursorSelf.style.left = event.clientX + 'px';
-    cursorSelf.style.top = event.clientY + 'px';
-
-    const x = event.clientX / window.innerWidth;
-    const y = event.clientY / window.innerHeight;
-
-    if (x === lastMouseCoords.x && y === lastMouseCoords.y) return;
-
+function sendData(data, ws) {
     // send mouse move event to server
-    const msg = JSON.stringify({clientId, x, y});
-    if(debug) console.debug(`Sending mouse move event: ${msg}`);
+    const msg = JSON.stringify(data);
+    if(debug) console.debug(`Sending data: ${msg}`);
 
+    if(debug) console.log(msg);
     try {
         ws.send(msg);
     } catch (e) {
@@ -214,7 +235,34 @@ function sendMouseCoords(event, ws) {
     }
 }
 
+function handleMouseCoords(event, ws) {
+    cursorSelf.style.left = event.clientX + 'px';
+    cursorSelf.style.top = event.clientY + 'px';
+
+    const x = event.clientX / window.innerWidth;
+    const y = event.clientY / window.innerHeight;
+
+    if (x === lastMouseCoords.x && y === lastMouseCoords.y) return;
+    const click = 0;
+    sendData({clientId, x, y, click}, ws);
+}
+
+function handleMouseClick(event, ws) {
+    if(debug) console.log(event);
+    const x = event.clientX / window.innerWidth;
+    const y = event.clientY / window.innerHeight;
+    const click = 1;
+    const data = {clientId, x, y, click};
+    sendData(data, ws);
+
+    // animate the click
+    const cursor = document.getElementById('cursor-self');
+    clickAnimation(cursor, data);
+}
+
+// single global mousemove handler
 let mouseMoveHandler = null;
+let mouseClickHandler = null;
 
 // connect to the websocket
 function connect() {
@@ -230,14 +278,23 @@ function connect() {
 
     registerWebsocketHandlers(ws);
 
-   // clear last mousemove listener
+    // clear last mousemove listener
     if (mouseMoveHandler) {
         document.removeEventListener('mousemove', mouseMoveHandler, {passive: true,});
     }
 
+    // clear last mousemove listener
+    if (mouseClickHandler) {
+        document.removeEventListener('click', mouseClickHandler, {passive: true,});
+    }
+
     // add new mousemove listener
-    mouseMoveHandler = (event) => sendMouseCoords(event, ws);
+    mouseMoveHandler = (event) => handleMouseCoords(event, ws);
     document.addEventListener('mousemove', mouseMoveHandler, {passive: true,});
+
+    // add new mouseclick listener
+    mouseClickHandler = (event) => handleMouseClick(event, ws);
+    document.addEventListener('click', mouseClickHandler, {passive: true,});
 }
 
 function removeCursor(clientId) {

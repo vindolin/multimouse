@@ -58,10 +58,14 @@ func handleConnection(conn *websocket.Conn, pool *wsPool) {
 			ClientId int     `json:"clientId"`
 			X        float64 `json:"x"`
 			Y        float64 `json:"y"`
+			Click    int     `json:"click"`
 		}
 		if err := json.Unmarshal(message, &mouseData); err != nil {
 			log.Println("error unmarshalling message:", err)
 			continue
+		}
+		if mouseData.Click != 0 {
+			log.Println("mouseData:", mouseData)
 		}
 
 		// Handle the mouse event...
@@ -136,7 +140,8 @@ func main() {
 		}
 	}()
 
-	embedStatic := true
+	// embedStatic := true
+	embedStatic := false
 
 	if embedStatic { // serve the static files from the normal filesystem
 		fs := http.FS(static)
