@@ -75,7 +75,7 @@ body {
 
 // setTimeout(function(){debugger;}, 5000)  // uncomment to freeze the screen for debugging
 
-// set body background color to random hue
+// set body background color to a random hue
 document.body.style.backgroundColor = `hsl(${Math.random() * 360}, 50%, 80%)`;
 
 const debug = false;
@@ -305,9 +305,12 @@ function removeCursor(clientId) {
 
         cursor.style.transition = 'all 1000ms';
         cursor.style.opacity = '0';
-        // cursor.style.transform = 'scale(0)'; // why isn't this working?
-        cursor.style.scale = '0';               // and why is THIS working?!
-        cursor.style.transformOrigin = '20% 20%'; // I guess this has to be 20% instead of 50% because the cursor is scaled to 0.4?!
+        cursor.style.transformOrigin = '20% 20%';
+        // cursor.style.transformOrigin = 'center';
+        // cursor.style.transform = 'scale(0.0)'; // why isn't this working?
+        cursor.style.scale = '0';                 // and why is THIS working?!
+        // I first tried center but that didn't work, I guess I have to do this in relation to it's scaling? 100% * 0.4 / 2 = 20%
+        // maybe the non-standard style.scale is causing this?
 
         cursor.addEventListener('transitionend', () => {
             cursor.remove();
