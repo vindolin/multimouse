@@ -303,9 +303,11 @@ function removeCursor(clientId) {
     var cursor = cursors[clientId];
     if (cursor) {
 
-        cursor.style.transition = `opacity 1000ms, scale 1000ms`;
+        cursor.style.transition = 'all 1000ms';
         cursor.style.opacity = '0';
-        cursor.style.scale = '0';
+        // cursor.style.transform = 'scale(0)'; // why isn't this working?
+        cursor.style.scale = '0';               // and why is THIS working?!
+        cursor.style.transformOrigin = '20% 20%'; // I guess this has to be 20% instead of 50% because the cursor is scaled to 0.4?!
 
         cursor.addEventListener('transitionend', () => {
             cursor.remove();
