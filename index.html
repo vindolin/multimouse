@@ -90,6 +90,7 @@ const fastReconnectInterval = 1000;
 
 const cursorSelf = document.getElementById('cursor-self');
 
+let clientId;
 let lastPingTimestamp = Date.now();
 let pingInterval;
 let cursors = {};
@@ -121,7 +122,11 @@ function setOtherCursor(data) {
         cursor.src = '/static/cursor_others.png';
         // apply the cursor-other class
         cursor.classList.add('cursor', 'cursor-others');
-        cursor.style.filter = `hue-rotate(${Math.floor(Math.random() * 360)}deg) drop-shadow(15px 15px 8px rgba(0, 0, 0, 0.3))`;  // can a filter just be added to another one?
+
+        // extract the angle from the first 3 numbers in clientId
+        const angle = data.clientId.toString().slice(0, 3);
+
+        cursor.style.filter = `hue-rotate(${angle}deg) drop-shadow(15px 15px 8px rgba(0, 0, 0, 0.3))`;  // can a filter just be added to another one?
 
         // set zoom origin to the cursor position
         cursor.style.transformOrigin = `${data.x * 100}% ${data.y * 100}%`;
@@ -220,8 +225,6 @@ function registerWebsocketHandlers(ws) {
     };
 }
 
-var cleanupRunning = false;
-
 var lastMouseCoords = {x: 0, y: 0};
 
 function sendData(data, ws) {
@@ -274,7 +277,12 @@ function connect() {
     }
 
     connecting = true;
-    clientId = Date.now() + Math.floor(Math.random() * 100);
+    clientId = self.crypto.getRandomValues(new Uint32Array(1))[0].toString();
+    // generate a random hue rotation angle
+    let randomAngle = parseInt(Math.random() * 360).toString();
+    randomAngle = randomAngle.toString().padStart(3, '0');
+    // overwrite the first 3 digits with a random angle
+    clientId = parseInt(randomAngle + clientId.slice(3));
     console.info(`Client ${clientId} Connecting to websocket ${scheme}//${loc.host}/ws`);
     const ws = new WebSocket(`${scheme}//${loc.host}/ws`);
 
