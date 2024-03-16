@@ -107,7 +107,7 @@ function clickAnimation(cursor, data) {
     };
     if (data.click != 0) {
         // cycle hue by 60 degrees per clickCount
-        let angle = data.clickCount * 60 % 360;
+        let angle = data.clickCount * 10 % 360;
         cursor.style.filter = `hue-rotate(${angle}deg) drop-shadow(15px 15px 8px rgba(0, 0, 0, 0.3))`;
         cursor.style.animation = 'cursor-click 50ms';
     }
