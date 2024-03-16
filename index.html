@@ -91,6 +91,7 @@ const fastReconnectInterval = 1000;
 const cursorSelf = document.getElementById('cursor-self');
 
 let clientId;
+let clickCount = 0;
 let lastPingTimestamp = Date.now();
 let pingInterval;
 let cursors = {};
@@ -100,11 +101,14 @@ let connecting = false;
 
 function clickAnimation(cursor, data) {
     cursor.onanimationend = (e) => {
-        if(e.animationName === 'cursor-click') {
+        if (e.animationName === 'cursor-click') {
             cursor.style.animation = 'cursor-rotation alternate 1s infinite ease-in-out';
         }
     };
-    if(data.click != 0) {
+    if (data.click != 0) {
+        // cycle hue by 60 degrees per clickCount
+        let angle = data.clickCount * 60 % 360;
+        cursor.style.filter = `hue-rotate(${angle}deg) drop-shadow(15px 15px 8px rgba(0, 0, 0, 0.3))`;
         cursor.style.animation = 'cursor-click 50ms';
     }
 }
@@ -125,7 +129,6 @@ function setOtherCursor(data) {
 
         // extract the angle from the first 3 numbers in clientId
         const angle = data.clientId.toString().slice(0, 3);
-
         cursor.style.filter = `hue-rotate(${angle}deg) drop-shadow(15px 15px 8px rgba(0, 0, 0, 0.3))`;  // can a filter just be added to another one?
 
         // set zoom origin to the cursor position
@@ -144,7 +147,7 @@ function setOtherCursor(data) {
 
         cursors[data.clientId] = cursor;
     } else {
-        if(debug) console.info('Cursor already exists');
+        if (debug) console.info('Cursor already exists');
     }
 
     // Update the position of the image element
@@ -156,7 +159,6 @@ function setOtherCursor(data) {
 }
 
 function registerWebsocketHandlers(ws) {
-
     // periodically check if we have received a ping in the last n seconds
     console.log('Registering websocket handlers');
 
@@ -166,7 +168,7 @@ function registerWebsocketHandlers(ws) {
     // and start a new one
     pingInterval = setInterval(() => {
         console.info('Checking ping')
-        if(debug) console.debug('Last ping', Date.now() - lastPingTimestamp, pingIntervalTime);
+        if (debug) console.debug('Last ping', Date.now() - lastPingTimestamp, pingIntervalTime);
         if (Date.now() - lastPingTimestamp > pingIntervalTime) {
             console.error('No ping received in the last 30 seconds. Closing socket');
             ws.close();
@@ -194,13 +196,13 @@ function registerWebsocketHandlers(ws) {
         }
 
         if (data.clientId != clientId) { // Don't show our own cursor
-            if(debug) console.debug('received message', event.data)
+            if (debug) console.debug('received message', event.data)
             setOtherCursor(data);
 
             // Update the last received time for this client
             lastReceived[data.clientId] = Date.now();
         } else {
-            if(debug) console.debug('Received our own cursor');
+            if (debug) console.debug('Received our own cursor');
         }
     };
 
@@ -219,7 +221,7 @@ function registerWebsocketHandlers(ws) {
         connecting = false;
     };
 
-    ws.onopen = function() {
+    ws.onopen = () => {
         console.info('Socket connected');
         connecting = false;
     };
@@ -230,9 +232,9 @@ var lastMouseCoords = {x: 0, y: 0};
 function sendData(data, ws) {
     // send mouse move event to server
     const msg = JSON.stringify(data);
-    if(debug) console.debug(`Sending data: ${msg}`);
+    if (debug) console.debug(`Sending data: ${msg}`);
 
-    if(debug) console.log(msg);
+    if (debug) console.log(msg);
     try {
         ws.send(msg);
     } catch (e) {
@@ -240,7 +242,7 @@ function sendData(data, ws) {
     }
 }
 
-function handleMouseCoords(event, ws) {
+function handleMouseCoords (event, ws) {
     cursorSelf.style.left = event.clientX + 'px';
     cursorSelf.style.top = event.clientY + 'px';
 
@@ -253,11 +255,11 @@ function handleMouseCoords(event, ws) {
 }
 
 function handleMouseClick(event, ws) {
-    if(debug) console.log(event);
+    if (debug) console.log(event);
     const x = event.clientX / window.innerWidth;
     const y = event.clientY / window.innerHeight;
-    const click = 1;
-    const data = {clientId, x, y, click};
+    const data = {clientId, x, y, clickCount};
+    clickCount++;
     sendData(data, ws);
 
     // animate the click
@@ -313,12 +315,12 @@ function removeCursor(clientId) {
 
         cursor.style.transition = 'all 1000ms';
         cursor.style.opacity = '0';
+        // I first tried center but that didn't work, I guess I have to do this in relation to it's scaling? 100% * 0.4 / 2 = 20%
+        // maybe the non-standard style.scale is causing this?
         cursor.style.transformOrigin = '20% 20%';
         // cursor.style.transformOrigin = 'center';
         // cursor.style.transform = 'scale(0.0)'; // why isn't this working?
         cursor.style.scale = '0';                 // and why is THIS working?!
-        // I first tried center but that didn't work, I guess I have to do this in relation to it's scaling? 100% * 0.4 / 2 = 20%
-        // maybe the non-standard style.scale is causing this?
 
         cursor.addEventListener('transitionend', () => {
             cursor.remove();
