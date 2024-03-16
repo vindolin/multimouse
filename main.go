@@ -140,8 +140,8 @@ func main() {
 		}
 	}()
 
-	// embedStatic := true
-	embedStatic := false
+	embedStatic := true
+	// embedStatic := false
 
 	if embedStatic { // serve the static files from the normal filesystem
 		fs := http.FS(static)
